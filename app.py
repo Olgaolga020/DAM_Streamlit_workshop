@@ -315,13 +315,13 @@ fig.show()
 # -------------
 # Wykres pudełkowy ocena a VTAT
 # -------------
-fig = px.box(completed_rides, x="Driver Ratings", y="Avg VTAT")
+fig = px.box(completed_rides, x="Customer Rating", y="Avg VTAT")
 fig.update_xaxes(range=[2.8, 5.2])
 fig.show()
 
 # -------------
 # Wykres pudełkowy ocena a CTAT
 # -------------
-fig = px.box(completed_rides, x="Driver Ratings", y="Avg CTAT")
+fig = px.box(completed_rides, x="Customer Rating", y="Avg CTAT")
 fig.update_xaxes(range=[2.8, 5.2])
 fig.show()
