@@ -102,8 +102,8 @@ change_revenue = round(((latest_revenue - previous_completed["Booking Value"].su
 latest_avg_distance = round(latest_completed["Ride Distance"].mean(),2)
 change_avg_distance = round(((latest_avg_distance - previous_completed["Ride Distance"].mean()) / previous_completed["Ride Distance"].mean() * 100),2)
 
-        week_start = latest_day - pd.Timedelta(days=6)
-        latest_week_data = filtered_rides[
+week_start = latest_day - pd.Timedelta(days=6)
+latest_week_data = filtered_rides[
             (filtered_rides["Date"] >= week_start)
             & (filtered_rides["Date"] <= latest_day)
         ]
@@ -124,7 +124,7 @@ with tab_day:
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Bookings", latest_bookings, str(change_bookings) + "%")
     col2.metric("Success rate", str(latest_success_rate) + "%", str(change_success_rate) + " pp")
-    col3.metric("Cancellation rate", str(latest_cancellation_rate) + "%", str(change_cancellation_rate) + " pp")
+    col3.metric("Cancellation rate", str(latest_cancellation_rate) + "%", str(change_cancellation_rate) + " pp", delta_color="inverse")
     col4.metric("Revenue", "₹" + str(latest_revenue) + "tys", str(change_revenue) + "%")
     col5.metric("Avg distance", str(latest_avg_distance) + "km", str(change_avg_distance)+"%")
 
