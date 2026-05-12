@@ -147,6 +147,11 @@ pandas
 plotly
 ```
 
+Recommended Python version:
+
+```text
+Python 3.10 or newer
+
 ---
 
 ## Final result
