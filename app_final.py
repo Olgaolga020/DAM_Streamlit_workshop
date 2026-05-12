@@ -1,6 +1,5 @@
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
 # =========================================================
@@ -42,130 +41,49 @@ st.caption("A Streamlit dashboard for monitoring bookings, revenue, cancellation
 st.sidebar.header("Dashboard controls")
 st.sidebar.caption("Global filters applied across all tabs.")
 
+original_rides = rides.copy()
+
 selected_date_range = st.sidebar.date_input(
     "Date range",
-    value=(rides["Date"].min().date(), rides["Date"].max().date()),
-    min_value=rides["Date"].min().date(),
-    max_value=rides["Date"].max().date(),
+    value=(original_rides["Date"].min().date(), original_rides["Date"].max().date()),
+    min_value=original_rides["Date"].min().date(),
+    max_value=original_rides["Date"].max().date(),
 )
 
-vehicle_options = ["All"] + sorted(rides["Vehicle Type"].unique())
+vehicle_options = ["All"] + sorted(original_rides["Vehicle Type"].unique())
 selected_vehicle = st.sidebar.selectbox("Vehicle type", vehicle_options)
-
-filtered_rides = rides.copy()
 
 if len(selected_date_range) == 2:
     start_date, end_date = selected_date_range
-    filtered_rides = filtered_rides[
-        (filtered_rides["Date"] >= pd.to_datetime(start_date))
-        & (filtered_rides["Date"] <= pd.to_datetime(end_date))
+    rides = rides[
+        (rides["Date"] >= pd.to_datetime(start_date))
+        & (rides["Date"] <= pd.to_datetime(end_date))
     ]
 
 if selected_vehicle != "All":
-    filtered_rides = filtered_rides[filtered_rides["Vehicle Type"] == selected_vehicle]
+    rides = rides[rides["Vehicle Type"] == selected_vehicle]
 
-completed_rides = filtered_rides[filtered_rides["Is Completed"]]
-not_completed_rides = filtered_rides[filtered_rides["Is Not Completed"]]
+if rides.empty:
+    st.warning("No data available for selected filters.")
+    st.stop()
 
+completed_rides = rides[rides["Is Completed"]]
+not_completed_rides = rides[rides["Is Not Completed"]]
+
+if completed_rides.empty:
+    st.warning("Selected filters contain no completed rides. Some charts may be unavailable.")
+    
 
 # =========================================================
 # Tabs
 # =========================================================
-tab_day, tab_full, tab_cancellations, tab_ratings = st.tabs(
-    ["Day overview", "Full period", "Cancellations & issues", "Ratings & time"]
+tab_full, tab_cancellations, tab_ratings = st.tabs(
+    ["Overview", "Cancellations & issues", "Ratings & time"]
 )
 
 
 # =========================================================
-# Tab 1: Day overview
-# =========================================================
-#region Przygotowanie danych do zakładki
-latest_day = filtered_rides["Date"].max()
-previous_day = latest_day - pd.Timedelta(days=1)
-latest_day_data = filtered_rides[filtered_rides["Date"] == latest_day]
-previous_day_data = filtered_rides[filtered_rides["Date"] == previous_day]
-latest_completed = latest_day_data[latest_day_data["Is Completed"]]
-previous_completed = previous_day_data[previous_day_data["Is Completed"]]
-
-latest_bookings = round(len(latest_day_data),0)
-change_bookings = round((latest_bookings - len(previous_day_data)) / len(previous_day_data) * 100,2)
- 
-latest_success_rate = round(latest_day_data["Is Completed"].mean() * 100,2)
-change_success_rate = round(latest_success_rate - previous_day_data["Is Completed"].mean() * 100,2)
-
-latest_cancellation_rate = round(latest_day_data["Is Cancelled"].mean() * 100,2)
-change_cancellation_rate = round(latest_cancellation_rate - previous_day_data["Is Cancelled"].mean() * 100,2)
-
-latest_revenue = round(latest_completed["Booking Value"].sum()/1000,2)
-change_revenue = round(((latest_revenue - previous_completed["Booking Value"].sum()/1000) / previous_completed["Booking Value"].sum()/1000 * 100),2)
-
-latest_avg_distance = round(latest_completed["Ride Distance"].mean(),2)
-change_avg_distance = round(((latest_avg_distance - previous_completed["Ride Distance"].mean()) / previous_completed["Ride Distance"].mean() * 100),2)
-
-week_start = latest_day - pd.Timedelta(days=6)
-latest_week_data = filtered_rides[
-            (filtered_rides["Date"] >= week_start)
-            & (filtered_rides["Date"] <= latest_day)
-        ]
-
-daily_summary = (
-            latest_week_data
-            .groupby("Date")
-            .agg(Bookings=("Booking ID", "count"), Revenue=("Booking Value", "sum"))
-            .reset_index()
-        )
-#endregion
-
-with tab_day:
-    st.subheader("Latest day overview")
-
-    st.write("Showing performance for " + str(latest_day.date()) + " compared to the previous day.")
-
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Bookings", latest_bookings, str(change_bookings) + "%")
-    col2.metric("Success rate", str(latest_success_rate) + "%", str(change_success_rate) + " pp")
-    col3.metric("Cancellation rate", str(latest_cancellation_rate) + "%", str(change_cancellation_rate) + " pp", delta_color="inverse")
-    col4.metric("Revenue", "₹" + str(latest_revenue) + "tys", str(change_revenue) + "%")
-    col5.metric("Avg distance", str(latest_avg_distance) + "km", str(change_avg_distance)+"%")
-
-    st.divider()
-
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.markdown("#### Last 7 days: bookings and revenue")
-
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=daily_summary["Date"], y=daily_summary["Bookings"], name="Bookings", mode="lines+markers"))
-        fig.add_trace(go.Scatter(x=daily_summary["Date"], y=daily_summary["Revenue"], name="Revenue", mode="lines+markers", yaxis="y2"))
-        fig.update_layout(
-            yaxis=dict(title="Bookings"),
-            yaxis2=dict(title="Revenue", overlaying="y", side="right"),
-            legend=dict(orientation="h"),
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col_right:
-        st.markdown("#### Latest day: booking status")
-        status_counts = latest_day_data["Booking Status"].value_counts().reset_index()
-        status_counts.columns = ["Status", "Bookings"]
-        st.plotly_chart(px.pie(status_counts, names="Status", values="Bookings", hole=0.35), use_container_width=True)
-
-    st.markdown("#### Latest day: ride distance vs booking value")
-    st.caption("Each point is one completed ride. Bubble size represents booking value.")
-    fig = px.scatter(
-        latest_completed,
-        x="Ride Distance",
-        y="Booking Value",
-        color="Vehicle Type",
-        size="Booking Value",
-        hover_data=["Payment Method", "Pickup Location", "Drop Location"],
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# =========================================================
-# Tab 2: Business overview
+# Tab 1: Overview
 # =========================================================
 #region Przygotowanie danych do zakładki
 total_bookings = round(len(rides),0)
@@ -197,15 +115,15 @@ revenue_by_payment = (
 #endregion
 
 with tab_full:
-    st.subheader("Business overview")
+    st.subheader("Overview")
 
-    st.write(f"Showing data from **{filtered_rides['Date'].min().date()}** to **{filtered_rides['Date'].max().date()}**.")
+    st.write(f"Showing data from **{rides['Date'].min().date()}** to **{rides['Date'].max().date()}**.")
 
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Bookings", total_bookings)
     col2.metric("Success rate", str(success_rate) + "%")
     col3.metric("Cancellation rate", str(cancellation_rate) + "%")
-    col4.metric("Revenue", "₹" + str(total_revenue/1000) + "tys")
+    col4.metric("Revenue", "₹" + str(total_revenue) + "tys")
     col5.metric("Avg distance", str(round(avg_distance,2)) + "km")
 
     st.divider()
@@ -234,9 +152,19 @@ with tab_full:
         fig = px.bar(revenue_by_payment, x="Payment Method", y="Booking Value")
         st.plotly_chart(fig, use_container_width=True)
 
+    
+    st.markdown("#### Ride distance vs booking value")
+    st.caption("Each point is one completed ride. Bubble size represents booking value.")
+    fig = px.scatter(
+        completed_rides,
+        x="Ride Distance",
+        y="Booking Value",
+        hover_data=["Payment Method", "Pickup Location", "Drop Location"],
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 # =========================================================
-# Tab 3: Cancellations & issues
+# Tab 2: Cancellations & issues
 # =========================================================
 #region Przygotowanie danych do zakładki
 cancellation_rate = round(rides["Is Cancelled"].mean() * 100,2)
@@ -278,21 +206,21 @@ with tab_cancellations:
     with col_right:
         if issue_type == "Customer cancellations":
             st.markdown("#### Customer cancellation reasons")
-            data = filtered_rides["Reason for cancelling by Customer"].dropna().value_counts().reset_index()
+            data = rides["Reason for cancelling by Customer"].dropna().value_counts().reset_index()
             data.columns = ["Reason", "Count"]
             fig = px.pie(data, names="Reason", values="Count", hole=0.35)
             st.plotly_chart(fig, use_container_width=True)
 
         elif issue_type == "Driver cancellations":
             st.markdown("#### Driver cancellation reasons")
-            data = filtered_rides["Driver Cancellation Reason"].dropna().value_counts().reset_index()
+            data = rides["Driver Cancellation Reason"].dropna().value_counts().reset_index()
             data.columns = ["Reason", "Count"]
             fig = px.pie(data, names="Reason", values="Count", hole=0.35)
             st.plotly_chart(fig, use_container_width=True)
 
         elif issue_type == "Incomplete rides":
             st.markdown("#### Incomplete ride reasons")
-            data = filtered_rides["Incomplete Rides Reason"].dropna().value_counts().reset_index()
+            data = rides["Incomplete Rides Reason"].dropna().value_counts().reset_index()
             data.columns = ["Reason", "Count"]
             fig = px.pie(data, names="Reason", values="Count", hole=0.35)
             st.plotly_chart(fig, use_container_width=True)
@@ -308,7 +236,7 @@ with tab_cancellations:
 
 
 # =========================================================
-# Tab 4: Ratings & time
+# Tab 3: Ratings & time
 # =========================================================
 #region Przygotowanie danych do zakładki
 avg_customer_rating = round(completed_rides["Customer Rating"].mean(),2)

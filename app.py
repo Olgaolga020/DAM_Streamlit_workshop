@@ -1,6 +1,5 @@
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 
 # =========================================================
 # Page setup
@@ -41,94 +40,9 @@ not_completed_rides = rides[rides["Is Not Completed"]]
 # =========================================================
 
 
-# =========================================================
-# Tab 1: Day overview
-# =========================================================
-#region Przygotowanie danych do zakładki
-latest_day = rides["Date"].max()
-previous_day = latest_day - pd.Timedelta(days=1)
-latest_day_data = rides[rides["Date"] == latest_day]
-previous_day_data = rides[rides["Date"] == previous_day]
-latest_completed = latest_day_data[latest_day_data["Is Completed"]]
-previous_completed = previous_day_data[previous_day_data["Is Completed"]]
-
-latest_bookings = round(len(latest_day_data),0)
-change_bookings = round((latest_bookings - len(previous_day_data)) / len(previous_day_data) * 100,2)
- 
-latest_success_rate = round(latest_day_data["Is Completed"].mean() * 100,2)
-change_success_rate = round(latest_success_rate - previous_day_data["Is Completed"].mean() * 100,2)
-
-latest_cancellation_rate = round(latest_day_data["Is Cancelled"].mean() * 100,2)
-change_cancellation_rate = round(latest_cancellation_rate - previous_day_data["Is Cancelled"].mean() * 100,2)
-
-latest_revenue = round(latest_completed["Booking Value"].sum()/1000,2)
-change_revenue = round(((latest_revenue - previous_completed["Booking Value"].sum()/1000) / previous_completed["Booking Value"].sum()/1000 * 100),2)
-
-latest_avg_distance = round(latest_completed["Ride Distance"].mean(),2)
-change_avg_distance = round(((latest_avg_distance - previous_completed["Ride Distance"].mean()) / previous_completed["Ride Distance"].mean() * 100),2)
-
-week_start = latest_day - pd.Timedelta(days=6)
-latest_week_data = rides[
-    (rides["Date"] >= week_start)
-    & (rides["Date"] <= latest_day)
-]
-
-daily_summary = (
-    latest_week_data
-    .groupby("Date")
-    .agg(Bookings=("Booking ID", "count"), Revenue=("Booking Value", "sum"))
-    .reset_index()
-)
-#endregion
-
-print("DAY OVERVIEW")
-print("Showing performance for " + str(latest_day.date()) + " compared to the previous day.")
-
-# -------------
-# KPI 
-# -------------
-print("Bookings", latest_bookings, str(change_bookings) + "%")
-print("Success rate", str(latest_success_rate) + "%", str(change_success_rate) + " pp")
-print("Cancellation rate", str(latest_cancellation_rate) + "%", str(change_cancellation_rate) + " pp")
-print("Revenue", "₹" + str(latest_revenue) + "tys", str(change_revenue) + "%")
-print("Avg distance", str(latest_avg_distance) + "km", str(change_avg_distance)+"%")
-
-# -------------
-# Wykres liniowy ostatniego tygodnia
-# -------------
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=daily_summary["Date"], y=daily_summary["Bookings"], name="Bookings", mode="lines+markers"))
-fig.add_trace(go.Scatter(x=daily_summary["Date"], y=daily_summary["Revenue"], name="Revenue", mode="lines+markers", yaxis="y2"))
-fig.update_layout(
-    yaxis=dict(title="Bookings"),
-    yaxis2=dict(title="Revenue", overlaying="y", side="right"),
-    legend=dict(orientation="h"),
-)
-fig.show()
-
-# -------------
-# Wykres kołowy statusów
-# -------------
-status_counts = latest_day_data["Booking Status"].value_counts().reset_index()
-status_counts.columns = ["Status", "Bookings"]
-fig = px.pie(status_counts, names="Status", values="Bookings", hole=0.35)
-fig.show()
-
-# -------------
-# Wykres rozrzutu distans vs wartość
-# -------------
-fig = px.scatter(
-    latest_completed,
-    x="Ride Distance",
-    y="Booking Value",
-    color="Vehicle Type",
-    hover_data=["Payment Method", "Pickup Location", "Drop Location"],
-)
-fig.show()
-
 
 # =========================================================
-# Tab 2: Business overview
+# Tab 1: Overview
 # =========================================================
 #region Przygotowanie danych do zakładki
 total_bookings = round(len(rides),0)
@@ -159,7 +73,7 @@ revenue_by_payment = (
 )
 #endregion
 
-print("BUSINESS OVERVIEW")
+print("OVERVIEW")
 
 # -------------
 # KPI 
@@ -167,36 +81,46 @@ print("BUSINESS OVERVIEW")
 print("Bookings", total_bookings)
 print("Success rate", str(success_rate) + "%")
 print("Cancellation rate", str(cancellation_rate) + "%")
-print("Revenue", "₹" + str(total_revenue/1000) + "tys")
+print("Revenue", "₹" + str(total_revenue) + "tys")
 print("Avg distance", str(round(avg_distance,2)) + "km")
 
 # -------------
 # Wykres liniowy liczby bookingów
 # -------------
 fig = px.line(daily_bookings, x="Date", y="Bookings")
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres kołowy statusów 
 # -------------
 fig = px.pie(status_overview, names="Status", values="Bookings", hole=0.35)
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres słupkowy typu pojazdu
 # -------------
 fig = px.bar(revenue_by_vehicle, x="Vehicle Type", y="Booking Value")
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres słupkowy metody płatności
 # -------------
 fig = px.bar(revenue_by_payment, x="Payment Method", y="Booking Value")
-fig.show()
+#fig.show()
 
+# -------------
+# Wykres rozrzutu distans vs wartość
+# -------------
+fig = px.scatter(
+    completed_rides,
+    x="Ride Distance",
+    y="Booking Value",
+    hover_data=["Payment Method", "Pickup Location", "Drop Location"],
+)
+#fig.show()
 
 # =========================================================
-# Tab 3: Cancellations & issues
+# Tab 2: Cancellations & issues
 # =========================================================
 #region Przygotowanie danych do zakładki
 cancellation_rate = round(rides["Is Cancelled"].mean() * 100,2)
@@ -225,7 +149,7 @@ print("No driver rate", str(no_driver_rate) + "%")
 # -------------
 fig = px.bar(issue_status, x="Bookings", y="Booking Status", orientation="h")
 fig.update_layout(yaxis={"categoryorder": "total ascending"})
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres kołowy powód rezygnacji klienta
@@ -233,7 +157,7 @@ fig.show()
 data = rides["Reason for cancelling by Customer"].dropna().value_counts().reset_index()
 data.columns = ["Reason", "Count"]
 fig = px.pie(data, names="Reason", values="Count", hole=0.35)
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres kołowy powód rezygnacji kierowcy
@@ -241,7 +165,7 @@ fig.show()
 data = rides["Driver Cancellation Reason"].dropna().value_counts().reset_index()
 data.columns = ["Reason", "Count"]
 fig = px.pie(data, names="Reason", values="Count", hole=0.35)
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres kołowy powód niewykonania przejazdu
@@ -249,7 +173,7 @@ fig.show()
 data = rides["Incomplete Rides Reason"].dropna().value_counts().reset_index()
 data.columns = ["Reason", "Count"]
 fig = px.pie(data, names="Reason", values="Count", hole=0.35)
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres kołowy status
@@ -259,11 +183,11 @@ data = pd.DataFrame({
     "Count": [cancelled_count, incomplete_count, no_driver_count]
 })
 fig = px.pie(data, names="Issue type", values="Count", hole=0.35)
-fig.show()
+#fig.show()
 
 
 # =========================================================
-# Tab 4: Ratings & time
+# Tab 3: Ratings & time
 # =========================================================
 #region Przygotowanie danych do zakładki
 avg_customer_rating = round(completed_rides["Customer Rating"].mean(),2)
@@ -289,17 +213,17 @@ print("Avg CTAT", str(avg_ctat) + " min")
 # -------------
 fig = px.histogram(completed_rides, x="Customer Rating", nbins=20)
 fig.update_xaxes(range=[2.8, 5.2])
-fig.show()
+#fig.show()
 
 # -------------
 # Histogram ocen kierowców
 # -------------
 fig = px.histogram(completed_rides, x="Driver Ratings", nbins=20)
 fig.update_xaxes(range=[2.8, 5.2])
-fig.show()
+#fig.show()
 
 # -------------
-# WYkres rozrzutu oceń kierowców i klientów
+# WYkres rozrzutu ocen kierowców i klientów
 # -------------
 fig = px.scatter(
     rating_pairs,
@@ -310,18 +234,18 @@ fig = px.scatter(
 )
 fig.update_xaxes(range=[2.8, 5.2])
 fig.update_yaxes(range=[2.8, 5.2])
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres pudełkowy ocena a VTAT
 # -------------
 fig = px.box(completed_rides, x="Customer Rating", y="Avg VTAT")
 fig.update_xaxes(range=[2.8, 5.2])
-fig.show()
+#fig.show()
 
 # -------------
 # Wykres pudełkowy ocena a CTAT
 # -------------
 fig = px.box(completed_rides, x="Customer Rating", y="Avg CTAT")
 fig.update_xaxes(range=[2.8, 5.2])
-fig.show()
+#fig.show()
