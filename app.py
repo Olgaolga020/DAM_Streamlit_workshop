@@ -32,6 +32,8 @@ rides["Is Not Completed"] = ~rides["Is Completed"]
 # Sidebar filters
 # =========================================================
 
+original_rides = rides.copy()
+
 completed_rides = rides[rides["Is Completed"]]
 not_completed_rides = rides[rides["Is Not Completed"]]
 

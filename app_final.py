@@ -63,10 +63,6 @@ if len(selected_date_range) == 2:
 if selected_vehicle != "All":
     rides = rides[rides["Vehicle Type"] == selected_vehicle]
 
-if rides.empty:
-    st.warning("No data available for selected filters.")
-    st.stop()
-
 completed_rides = rides[rides["Is Completed"]]
 not_completed_rides = rides[rides["Is Not Completed"]]
 
@@ -116,8 +112,6 @@ revenue_by_payment = (
 
 with tab_full:
     st.subheader("Overview")
-
-    st.write(f"Showing data from **{rides['Date'].min().date()}** to **{rides['Date'].max().date()}**.")
 
     col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Bookings", total_bookings)
